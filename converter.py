@@ -12,8 +12,8 @@ class ImageConverterApp:
         
         self.set_app_icon()
         
-        # Supported formats
-        self.formats = ["PNG", "JPG", "JPEG", "ICO", "BMP"]
+        # Supported formats - Added WEBP, HEIC, HEIF
+        self.formats = ["PNG", "JPG", "JPEG", "ICO", "BMP", "WEBP", "HEIC", "HEIF"]
         self.input_paths = []
         self.output_path = ""
         self.preview_images = []  # Store references to all preview images
@@ -203,13 +203,16 @@ class ImageConverterApp:
         """Open file dialog to select multiple images of the selected source format"""
         source_format = self.source_format_var.get().lower()
         
-        # Map formats to file extensions
+        # Map formats to file extensions - Added WEBP, HEIC, HEIF
         format_extensions = {
             "png": ("*.png",),
             "jpg": ("*.jpg", "*.jpeg"),
             "jpeg": ("*.jpg", "*.jpeg"),
             "ico": ("*.ico",),
-            "bmp": ("*.bmp",)
+            "bmp": ("*.bmp",),
+            "webp": ("*.webp",),
+            "heic": ("*.heic",),
+            "heif": ("*.heif",)
         }
         
         # Get extensions for selected source format
@@ -319,6 +322,9 @@ class ImageConverterApp:
                     thumb_label.pack(pady=(0, 5))
                 except Exception as e:
                     error_msg = f"Error: {str(e)}"
+                    # Special handling for HEIC/HEIF formats
+                    if file_path.lower().endswith(('.heic', '.heif')):
+                        error_msg += "\n(HEIC/HEIF support requires pillow-heif)"
                     thumb_label = tk.Label(
                         thumb_frame,
                         text=error_msg,
@@ -443,13 +449,40 @@ class ImageConverterApp:
                     if output_format in ["jpg", "jpeg", "bmp"] and img.mode in ("RGBA", "P"):
                         img = img.convert("RGB")
                     
-                    # Save image
-                    img.save(output_file)
+                    # Handle special formats
+                    if output_format == "webp":
+                        # Save with lossless compression for transparency
+                        img.save(output_file, "WEBP", lossless=True)
+                    elif output_format in ["heic", "heif"]:
+                        # HEIC/HEIF requires pillow-heif library
+                        try:
+                            from pillow_heif import register_heif_opener, register_avif_opener
+                            register_heif_opener()
+                            register_avif_opener()
+                            
+                            # Save as HEIF format
+                            img.save(output_file, "HEIF")
+                        except ImportError:
+                            # Fall back to PNG if pillow-heif not available
+                            messagebox.showwarning(
+                                "Dependency Missing",
+                                "pillow-heif library not found. HEIC/HEIF files will be saved as PNG."
+                            )
+                            img.save(os.path.join(output_dir, f"{filename}.png"))
+                            output_format = "png"  # Update format for success message
+                    else:
+                        # Save other formats normally
+                        img.save(output_file)
+                    
                     success_count += 1
                     
                 except Exception as e:
                     error_count += 1
-                    self.status_var.set(f"Error converting {filename}: {str(e)}")
+                    # Special message for HEIC/HEIF if pillow-heif is missing
+                    if output_format in ["heic", "heif"] and "HEIF" in str(e):
+                        self.status_var.set(f"Error converting {filename}: pillow-heif required for HEIC/HEIF conversion")
+                    else:
+                        self.status_var.set(f"Error converting {filename}: {str(e)}")
             
             # Show summary
             messagebox.showinfo(
