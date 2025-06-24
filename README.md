@@ -1,9 +1,9 @@
 # An advanced file conveter
-My first side project with using python.
+My first side project with using python. <br />
 This is a file conveter with image conveter, audio conveter, video conveter and document conveter.
 
 # Support format
-Image: "PNG", "JPG", "JPEG", "ICO", "BMP", "WEBP", "HEIC", "HEIF"
+Image: "PNG", "JPG", "JPEG", "ICO", "BMP", "WEBP", "HEIC", "HEIF" <br />
 Audio: "MP3", "WAV", "AAC", "M4A", "OGG", "WMA"
 
 # Develop path
