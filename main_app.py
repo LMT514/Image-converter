@@ -1,4 +1,6 @@
 import tkinter as tk
+import os
+import sys
 from tkinter import ttk
 from image_converter import ImageConverter
 from audio_converter import AudioConverter
@@ -14,10 +16,19 @@ class MainApp:
         self.create_widgets()
     
     def set_app_icon(self):
+        """Set application icon with PyInstaller support"""
         try:
+            # First try directly in working directory
             self.root.iconbitmap("convert-icon.ico")
         except:
-            pass
+            try:
+                # Handle PyInstaller bundled executable
+                base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+                icon_path = os.path.join(base_path, "convert-icon.ico")
+                if os.path.exists(icon_path):
+                    self.root.iconbitmap(icon_path)
+            except:
+                pass  # Fail silently if icon can't be loaded
     
     def center_window(self):
         """Center the window on screen"""

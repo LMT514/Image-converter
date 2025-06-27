@@ -3,18 +3,51 @@ from tkinter import ttk, filedialog, messagebox
 import os
 import sys
 from pydub import AudioSegment
+from pydub.utils import which
+import re
 
 class AudioConverter:
     def __init__(self, root, main_root):
+
+        if getattr(sys, 'frozen', False):
+            bundle_dir = sys._MEIPASS
+        else:
+            bundle_dir = os.path.dirname(os.path.abspath(__file__))
+    
+        ffmpeg_path = os.path.join(bundle_dir, "ffmpeg.exe")
+        if os.path.isfile(ffmpeg_path):
+            AudioSegment.converter = ffmpeg_path
+
         self.root = root
         self.main_root = main_root
         self.root.title("Audio Converter")
-        self.root.geometry("700x650")  # Adjusted height
+        self.root.geometry("700x650")
         self.center_window()
         self.set_app_icon()
         
-        # Supported formats
-        self.formats = ["MP3", "WAV", "AAC", "M4A", "OGG", "WMA"]
+        # Verify FFmpeg installation
+        if not which("ffmpeg"):
+            messagebox.showerror(
+                "FFmpeg Missing",
+                "FFmpeg is required for audio conversion. Please install FFmpeg and add it to your PATH."
+            )
+            self.root.destroy()
+            return
+        
+        # Supported formats with proper codec mappings
+        self.source_formats = [
+            "MP3", "WAV", "AAC", "M4A", "OGG", "WMA", "FLAC", 
+            "VIDEO (Extract Audio)"
+        ]
+        self.target_formats = [
+            ("MP3", "mp3"),
+            ("WAV", "wav"),
+            ("AAC", "aac"),
+            ("M4A", "m4a"),
+            ("OGG", "ogg"),
+            ("WMA", "wma"),
+            ("FLAC", "flac")
+        ]
         self.input_paths = []
         self.output_path = ""
         self.MAX_FILES = 20
@@ -83,39 +116,40 @@ class AudioConverter:
         conversion_frame.pack(fill=tk.X, padx=10, pady=10)
         
         # Source format selection
-        ttk.Label(conversion_frame, text="Convert from:").pack(side=tk.LEFT)
+        ttk.Label(conversion_frame, text="Source Type:").pack(side=tk.LEFT)
         self.source_format_var = tk.StringVar()
         self.source_combo = ttk.Combobox(
             conversion_frame,
             textvariable=self.source_format_var,
-            values=self.formats,
+            values=self.source_formats,
             state="readonly",
-            width=8
+            width=18
         )
         self.source_combo.current(0)
         self.source_combo.pack(side=tk.LEFT, padx=5)
         
         # Target format selection
-        ttk.Label(conversion_frame, text="to:").pack(side=tk.LEFT, padx=(5, 0))
+        ttk.Label(conversion_frame, text="Convert to:").pack(side=tk.LEFT, padx=(5, 0))
         self.target_format_var = tk.StringVar()
+        target_names = [fmt[0] for fmt in self.target_formats]
         self.target_combo = ttk.Combobox(
             conversion_frame,
             textvariable=self.target_format_var,
-            values=self.formats,
+            values=target_names,
             state="readonly",
-            width=8
+            width=15
         )
         self.target_combo.current(1)
         self.target_combo.pack(side=tk.LEFT, padx=5)
         
         # Input section
-        input_frame = ttk.LabelFrame(main_frame, text="STEP 2: SELECT AUDIO FILES", style="Section.TFrame")
+        input_frame = ttk.LabelFrame(main_frame, text="STEP 2: SELECT FILES", style="Section.TFrame")
         input_frame.pack(fill=tk.X, pady=(0, 10))
         
         # Browse button
         self.upload_btn = ttk.Button(
             input_frame, 
-            text="Browse Audio Files", 
+            text="Browse Files", 
             command=self.browse_files
         )
         self.upload_btn.pack(pady=10, padx=10)
@@ -197,14 +231,15 @@ class AudioConverter:
         self.folder_entry = ttk.Entry(
             folder_frame,
             textvariable=self.folder_var,
-            width=20
+            width=20,
+            state="disabled"
         )
         self.folder_entry.pack(side=tk.LEFT, padx=5)
         
         # Convert button
         self.convert_btn = ttk.Button(
             main_frame,
-            text="CONVERT AUDIO",
+            text="CONVERT",
             command=self.convert_files,
             state="disabled"
         )
@@ -243,17 +278,54 @@ class AudioConverter:
             self.folder_entry.config(state="disabled")
     
     def browse_files(self):
+        source_type = self.source_format_var.get()
+        
+        # Map formats to file extensions
+        format_extensions = {
+            "MP3": ("*.mp3",),
+            "WAV": ("*.wav",),
+            "AAC": ("*.aac",),
+            "M4A": ("*.m4a",),
+            "OGG": ("*.ogg",),
+            "WMA": ("*.wma",),
+            "FLAC": ("*.flac",),
+            "VIDEO (Extract Audio)": ("*.mp4 *.avi *.mov *.mkv *.flv *.wmv *.webm *.mpeg *.mpg",)
+        }
+        
+        # Get extensions for selected source format
+        extensions = format_extensions.get(source_type, ("*.*",))
         filetypes = [
-            ("Audio Files", "*.mp3 *.wav *.aac *.m4a *.ogg *.wma"),
-            ("All Files", "*.*")
+            (f"{source_type} files", ";".join(extensions)),
+            ("All files", "*.*")
         ]
         
         file_paths = filedialog.askopenfilenames(filetypes=filetypes)
         if not file_paths:
             return
             
+        # Filter files by selected source format
+        valid_paths = []
+        for path in file_paths:
+            ext = os.path.splitext(path)[1].lower()
+            if source_type == "VIDEO (Extract Audio)":
+                # Allow all video formats for video extraction
+                if ext in ['.mp4', '.avi', '.mov', '.mkv', '.flv', '.wmv', '.webm', '.mpeg', '.mpg']:
+                    valid_paths.append(path)
+            else:
+                # For audio formats, filter by selected source type
+                allowed_exts = [e.replace("*", "") for e in extensions]
+                if ext in allowed_exts:
+                    valid_paths.append(path)
+        
+        if not valid_paths:
+            messagebox.showerror(
+                "Format Error", 
+                f"No valid {source_type} files selected!"
+            )
+            return
+            
         # Add new files to existing selection
-        new_paths = list(set(self.input_paths + list(file_paths)))
+        new_paths = list(set(self.input_paths + valid_paths))
         
         # Limit to MAX_FILES
         if len(new_paths) > self.MAX_FILES:
@@ -269,11 +341,14 @@ class AudioConverter:
     def process_files(self):
         """Process the selected files and show previews"""
         try:
-            self.files_label.config(text=f"{len(self.input_paths)} files selected")
-            self.convert_btn.config(state="normal" if self.input_paths else "disabled")
-            self.status_var.set(f"Loaded {len(self.input_paths)} audio files")
+            source_type = self.source_format_var.get()
+            file_type = "video" if source_type == "VIDEO (Extract Audio)" else "audio"
             
-            # Show previews for all audio files
+            self.files_label.config(text=f"{len(self.input_paths)} {file_type} files selected")
+            self.convert_btn.config(state="normal" if self.input_paths else "disabled")
+            self.status_var.set(f"Loaded {len(self.input_paths)} {file_type} files")
+            
+            # Show previews for all files
             self.show_previews()
             
         except Exception as e:
@@ -286,7 +361,7 @@ class AudioConverter:
             widget.destroy()
     
     def show_previews(self):
-        """Display preview for all audio files with remove buttons"""
+        """Display preview for all files with remove buttons"""
         try:
             # Clear existing previews
             self.clear_previews()
@@ -296,7 +371,7 @@ class AudioConverter:
                 # Add placeholder text when no files
                 placeholder = ttk.Label(
                     self.scrollable_frame,
-                    text="No files selected. Click 'Browse Audio Files' to add files.",
+                    text="No files selected. Click 'Browse Files' to add files.",
                     foreground="#888888",
                     font=("Arial", 9)
                 )
@@ -335,7 +410,7 @@ class AudioConverter:
                     bottom_frame,
                     text="X",
                     width=6,
-                    command=lambda f=file_path: self.remove_audio(f)
+                    command=lambda f=file_path: self.remove_file(f)
                 )
                 remove_btn.pack(side=tk.RIGHT)
             
@@ -351,8 +426,8 @@ class AudioConverter:
             )
             error_label.pack()
     
-    def remove_audio(self, file_path):
-        """Remove a specific audio file from the selection"""
+    def remove_file(self, file_path):
+        """Remove a specific file from the selection"""
         if file_path in self.input_paths:
             self.input_paths.remove(file_path)
             self.status_var.set(f"Removed: {os.path.basename(file_path)}")
@@ -365,19 +440,33 @@ class AudioConverter:
             self.path_var.set(path)
             self.status_var.set(f"Output path set to: {path}")
     
+    def get_format_extension(self, display_name):
+        """Get file extension from display name"""
+        for fmt in self.target_formats:
+            if fmt[0] == display_name:
+                return fmt[1]
+        return display_name.lower()
+    
+    def sanitize_filename(self, filename):
+        """Remove invalid characters from filename"""
+        return re.sub(r'[<>:"/\\|?*]', '', filename)
+    
     def convert_files(self):
         if not self.input_paths:
-            messagebox.showerror("Error", "No audio files selected!")
+            messagebox.showerror("Error", "No files selected!")
             return
         
         if not self.output_path:
             messagebox.showerror("Error", "Please select an output folder!")
             return
         
-        target_format = self.target_format_var.get().lower()
-        if not target_format:
+        target_display = self.target_format_var.get()
+        if not target_display:
             messagebox.showerror("Error", "Please select target format!")
             return
+        
+        # Get actual file extension
+        target_format = self.get_format_extension(target_display)
         
         # Determine output directory
         if self.create_folder_var.get():
@@ -391,34 +480,53 @@ class AudioConverter:
             os.makedirs(output_dir)
             self.status_var.set(f"Created folder: {folder_name}")
         
-        # Convert audio files
+        # Convert files
         success_count = 0
         error_count = 0
         total_files = len(self.input_paths)
         
         for i, input_path in enumerate(self.input_paths):
-            filename = os.path.splitext(os.path.basename(input_path))[0]
-            output_file = os.path.join(output_dir, f"{filename}.{target_format}")
+            # Sanitize filename and create output path
+            base_name = os.path.splitext(os.path.basename(input_path))[0]
+            clean_name = self.sanitize_filename(base_name)
+            output_file = os.path.join(output_dir, f"{clean_name}.{target_format}")
             
-            self.status_var.set(f"Converting {i+1}/{total_files}: {filename}")
+            self.status_var.set(f"Converting {i+1}/{total_files}: {base_name}")
             self.root.update()
             
             try:
-                # Load audio file
+                # Load file
                 audio = AudioSegment.from_file(input_path)
                 
-                # Export to target format
-                audio.export(output_file, format=target_format)
+                # Handle special formats
+                if target_format == "aac":
+                    audio.export(output_file, format="adts", codec="aac")  # AAC in ADTS container
+                elif target_format == "m4a":
+                    audio.export(output_file, format="ipod", codec="aac")   # AAC in MP4 container
+                elif target_format == "wma":
+                    audio.export(output_file, format="asf", codec="wmav2")  # Windows Media Audio
+                elif target_format == "flac":
+                    # Set higher quality for FLAC
+                    audio.export(output_file, format="flac", codec="flac", 
+                                parameters=["-compression_level", "8"])
+                else:
+                    # Default handling for other formats
+                    audio.export(output_file, format=target_format)
+                
                 success_count += 1
                 
             except Exception as e:
                 error_count += 1
-                self.status_var.set(f"Error converting {filename}: {str(e)}")
+                self.status_var.set(f"Error converting {base_name}: {str(e)}")
+                # Log detailed error
+                with open("conversion_errors.log", "a") as log_file:
+                    log_file.write(f"Error converting {input_path} to {target_format}: {str(e)}\n")
         
         # Show summary
+        source_type = "video" if self.source_format_var.get() == "VIDEO (Extract Audio)" else "audio"
         messagebox.showinfo(
             "Conversion Complete", 
-            f"Processed {total_files} audio files\n\n"
+            f"Processed {total_files} {source_type} files\n\n"
             f"Success: {success_count}\n"
             f"Errors: {error_count}\n\n"
             f"Files saved to: {output_dir}\n\n"
@@ -426,4 +534,4 @@ class AudioConverter:
         )
         
         # Update status
-        self.status_var.set(f"Converted {success_count} audio files to {target_format.upper()}")
+        self.status_var.set(f"Converted {success_count} files to {target_display}")
