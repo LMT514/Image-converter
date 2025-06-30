@@ -8,6 +8,8 @@ This is a file conveter with image conveter, audio conveter, video conveter and 
 Image: "PNG", "JPG", "JPEG", "ICO", "BMP", "WEBP", "HEIC", "HEIF" <br />
 Audio: "MP3", "WAV", "AAC", "M4A", "OGG", "WMA", "FLAC" (The Audio converter also support video to audio) <br />
 Video to Audio: "MP4", "AVI", "MOV", "MKV", "FLV", "WMV", "WEBM", "MPEG", "MPG" <br />
+Video: "MP4", "AVI", "MOV", "MKV", "FLV", "WMV", "WEBM", "MPEG", "MPG" (The video converter also support audio to video) <br />
+Audio to Video: "MP3", "WAV", "AAC", "M4A", "OGG", "WMA", "FLAC" <br/ >
 
 # How to build, run and export as exe
 Use Visual Studio Code, install python and type this command to install library. <br/>
@@ -22,6 +24,7 @@ your_project/
 ├── main_app.py
 ├── audio_converter.py
 ├── image_converter.py
+├── video_converter.py
 ├── convert-icon.ico
 ├── ffmpeg.exe (Windows only)
 └── build.py
@@ -32,11 +35,14 @@ python build.py
 ```
 After building, your EXE will be at: dist/FileConverter.exe <br/>
 
+#!!Important!!
+In the video converter, not sugget convert with "WEBM" which use a lot of CPU usage and slow
+
 # Develop path
 1. Image conveter (done)
 2. Audio conveter (done)
 3. Video to Audio conveter (done)
-4. Video conveter (not yet)
+4. Video conveter (done)
 5. Document conveter (not yet)
 
 # More function comming soon
