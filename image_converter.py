@@ -233,6 +233,11 @@ class ImageConverter:
             converter_window = tk.Toplevel(self.main_root)
             from audio_converter import AudioConverter
             AudioConverter(converter_window, self.main_root)
+        elif converter_name == "Video Converter":
+            self.root.destroy()
+            converter_window = tk.Toplevel(self.main_root)
+            from video_converter import VideoConverter
+            VideoConverter(converter_window, self.main_root)
         elif converter_name != "Image Converter":
             messagebox.showinfo(
                 "Coming Soon", 

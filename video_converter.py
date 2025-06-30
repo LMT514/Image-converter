@@ -2,13 +2,13 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import os
 import sys
+import re
+import subprocess
 from pydub import AudioSegment
 from pydub.utils import which
-import re
 
-class AudioConverter:
+class VideoConverter:
     def __init__(self, root, main_root):
-
         if getattr(sys, 'frozen', False):
             bundle_dir = sys._MEIPASS
         else:
@@ -20,7 +20,7 @@ class AudioConverter:
 
         self.root = root
         self.main_root = main_root
-        self.root.title("Audio Converter")
+        self.root.title("Video Converter")
         self.root.geometry("700x650")
         self.center_window()
         self.set_app_icon()
@@ -29,24 +29,26 @@ class AudioConverter:
         if not which("ffmpeg"):
             messagebox.showerror(
                 "FFmpeg Missing",
-                "FFmpeg is required for audio conversion. Please install FFmpeg and add it to your PATH."
+                "FFmpeg is required for video conversion. Please install FFmpeg and add it to your PATH."
             )
             self.root.destroy()
             return
         
-        # Supported formats with proper codec mappings
+        # Supported formats
         self.source_formats = [
-            "MP3", "WAV", "AAC", "M4A", "OGG", "WMA", "FLAC", 
-            "VIDEO (Extract Audio)"
+            "MP4", "AVI", "MOV", "MKV", "FLV", "WMV", "WEBM", "MPEG", "MPG",
+            "AUDIO (Extract from Video)"  # Added audio extraction option
         ]
         self.target_formats = [
-            ("MP3", "mp3"),
-            ("WAV", "wav"),
-            ("AAC", "aac"),
-            ("M4A", "m4a"),
-            ("OGG", "ogg"),
-            ("WMA", "wma"),
-            ("FLAC", "flac")
+            ("MP4", "mp4"),
+            ("AVI", "avi"),
+            ("MOV", "mov"),
+            ("MKV", "mkv"),
+            ("FLV", "flv"),
+            ("WMV", "wmv"),
+            ("WEBM", "webm"),
+            ("MPEG", "mpeg"),
+            ("MPG", "mpg")
         ]
         self.input_paths = []
         self.output_path = ""
@@ -55,7 +57,6 @@ class AudioConverter:
         self.create_widgets()
     
     def center_window(self):
-        """Center the window on screen"""
         self.root.update_idletasks()
         width = self.root.winfo_width()
         height = self.root.winfo_height()
@@ -101,7 +102,7 @@ class AudioConverter:
             self.nav_buttons.append(btn)
         
         # Highlight current converter
-        self.nav_buttons[2].configure(style="ActiveNav.TButton")
+        self.nav_buttons[3].configure(style="ActiveNav.TButton")
         
         # Main container frame
         main_frame = ttk.Frame(self.root, padding=20)
@@ -227,7 +228,7 @@ class AudioConverter:
         create_folder_cb.pack(side=tk.LEFT)
         
         # Folder name entry
-        self.folder_var = tk.StringVar(value="Converted Audio")
+        self.folder_var = tk.StringVar(value="Converted Videos")
         self.folder_entry = ttk.Entry(
             folder_frame,
             textvariable=self.folder_var,
@@ -265,12 +266,12 @@ class AudioConverter:
             converter_window = tk.Toplevel(self.main_root)
             from image_converter import ImageConverter
             ImageConverter(converter_window, self.main_root)
-        elif converter_name == "Video Converter":
+        elif converter_name == "Audio Converter":
             self.root.destroy()
             converter_window = tk.Toplevel(self.main_root)
-            from video_converter import VideoConverter
-            VideoConverter(converter_window, self.main_root)
-        elif converter_name != "Audio Converter":
+            from audio_converter import AudioConverter
+            AudioConverter(converter_window, self.main_root)
+        elif converter_name != "Video Converter":
             messagebox.showinfo(
                 "Coming Soon", 
                 f"{converter_name} will be available in the next version!"
@@ -287,14 +288,17 @@ class AudioConverter:
         
         # Map formats to file extensions
         format_extensions = {
-            "MP3": ("*.mp3",),
-            "WAV": ("*.wav",),
-            "AAC": ("*.aac",),
-            "M4A": ("*.m4a",),
-            "OGG": ("*.ogg",),
-            "WMA": ("*.wma",),
-            "FLAC": ("*.flac",),
-            "VIDEO (Extract Audio)": ("*.mp4 *.avi *.mov *.mkv *.flv *.wmv *.webm *.mpeg *.mpg",)
+            "MP4": ("*.mp4",),
+            "AVI": ("*.avi",),
+            "MOV": ("*.mov",),
+            "MKV": ("*.mkv",),
+            "FLV": ("*.flv",),
+            "WMV": ("*.wmv",),
+            "WEBM": ("*.webm",),
+            "MPEG": ("*.mpeg",),
+            "MPG": ("*.mpg",),
+            "AUDIO (Extract from Video)": ("*.mp3 *.wav *.aac *.m4a *.ogg *.wma *.flac",)
+            
         }
         
         # Get extensions for selected source format
@@ -312,12 +316,12 @@ class AudioConverter:
         valid_paths = []
         for path in file_paths:
             ext = os.path.splitext(path)[1].lower()
-            if source_type == "VIDEO (Extract Audio)":
-                # Allow all video formats for video extraction
-                if ext in ['.mp4', '.avi', '.mov', '.mkv', '.flv', '.wmv', '.webm', '.mpeg', '.mpg']:
+            if source_type == "AUDIO (Extract from Video)":
+                # Allow all video formats for audio extraction
+                if ext in ['.mp3', '.wav', '.aac', '.m4a', '.ogg', '.wma', '.flac', '.mpeg', '.mpg']:
                     valid_paths.append(path)
             else:
-                # For audio formats, filter by selected source type
+                # For specific formats, filter by selected source type
                 allowed_exts = [e.replace("*", "") for e in extensions]
                 if ext in allowed_exts:
                     valid_paths.append(path)
@@ -344,14 +348,16 @@ class AudioConverter:
         self.process_files()
     
     def process_files(self):
-        """Process the selected files and show previews"""
         try:
             source_type = self.source_format_var.get()
-            file_type = "video" if source_type == "VIDEO (Extract Audio)" else "audio"
+            file_type = "video"
+            
+            if source_type == "AUDIO (Extract from Video)":
+                file_type = "video (audio extraction)"
             
             self.files_label.config(text=f"{len(self.input_paths)} {file_type} files selected")
             self.convert_btn.config(state="normal" if self.input_paths else "disabled")
-            self.status_var.set(f"Loaded {len(self.input_paths)} {file_type} files")
+            self.status_var.set(f"Loaded {len(self.input_paths)} files")
             
             # Show previews for all files
             self.show_previews()
@@ -361,12 +367,10 @@ class AudioConverter:
             self.status_var.set(f"Error loading files: {str(e)}")
     
     def clear_previews(self):
-        """Clear existing previews"""
         for widget in self.scrollable_frame.winfo_children():
             widget.destroy()
     
     def show_previews(self):
-        """Display preview for all files with remove buttons"""
         try:
             # Clear existing previews
             self.clear_previews()
@@ -432,7 +436,6 @@ class AudioConverter:
             error_label.pack()
     
     def remove_file(self, file_path):
-        """Remove a specific file from the selection"""
         if file_path in self.input_paths:
             self.input_paths.remove(file_path)
             self.status_var.set(f"Removed: {os.path.basename(file_path)}")
@@ -475,7 +478,7 @@ class AudioConverter:
         
         # Determine output directory
         if self.create_folder_var.get():
-            folder_name = self.folder_var.get().strip() or "Converted Audio"
+            folder_name = self.folder_var.get().strip() or "Converted Videos"
             output_dir = os.path.join(self.output_path, folder_name)
         else:
             output_dir = self.output_path
@@ -489,6 +492,7 @@ class AudioConverter:
         success_count = 0
         error_count = 0
         total_files = len(self.input_paths)
+        ffmpeg_path = which("ffmpeg")
         
         for i, input_path in enumerate(self.input_paths):
             # Sanitize filename and create output path
@@ -500,23 +504,39 @@ class AudioConverter:
             self.root.update()
             
             try:
-                # Load file
-                audio = AudioSegment.from_file(input_path)
-                
-                # Handle special formats
-                if target_format == "aac":
-                    audio.export(output_file, format="adts", codec="aac")  # AAC in ADTS container
-                elif target_format == "m4a":
-                    audio.export(output_file, format="ipod", codec="aac")   # AAC in MP4 container
-                elif target_format == "wma":
-                    audio.export(output_file, format="asf", codec="wmav2")  # Windows Media Audio
-                elif target_format == "flac":
-                    # Set higher quality for FLAC
-                    audio.export(output_file, format="flac", codec="flac", 
-                                parameters=["-compression_level", "8"])
+                if target_format in ["mp3", "wav", "aac", "m4a", "ogg", "wma", "flac"]:
+                    # Extract audio from video
+                    audio = AudioSegment.from_file(input_path)
+                    
+                    # Handle special formats
+                    if target_format == "aac":
+                        audio.export(output_file, format="adts", codec="aac")
+                    elif target_format == "m4a":
+                        audio.export(output_file, format="ipod", codec="aac")
+                    elif target_format == "wma":
+                        audio.export(output_file, format="asf", codec="wmav2")
+                    elif target_format == "flac":
+                        audio.export(output_file, format="flac", codec="flac", 
+                                    parameters=["-compression_level", "8"])
+                    else:
+                        audio.export(output_file, format=target_format)
                 else:
-                    # Default handling for other formats
-                    audio.export(output_file, format=target_format)
+                    # Video-to-video conversion
+                    command = [
+                        ffmpeg_path,
+                        "-i", input_path,
+                        "-y",  # Overwrite without asking
+                        output_file
+                    ]
+                    
+                    # Run FFmpeg command
+                    subprocess.run(
+                        command,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        check=True,
+                        text=True
+                    )
                 
                 success_count += 1
                 
@@ -528,10 +548,15 @@ class AudioConverter:
                     log_file.write(f"Error converting {input_path} to {target_format}: {str(e)}\n")
         
         # Show summary
-        source_type = "video" if self.source_format_var.get() == "VIDEO (Extract Audio)" else "audio"
+        source_type = self.source_format_var.get()
+        if source_type == "AUDIO (Extract from Video)":
+            message_text = f"Processed {total_files} video files (audio extracted)\n\n"
+        else:
+            message_text = f"Processed {total_files} video files\n\n"
+            
         messagebox.showinfo(
             "Conversion Complete", 
-            f"Processed {total_files} {source_type} files\n\n"
+            message_text +
             f"Success: {success_count}\n"
             f"Errors: {error_count}\n\n"
             f"Files saved to: {output_dir}\n\n"

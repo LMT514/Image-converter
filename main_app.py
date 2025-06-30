@@ -4,6 +4,7 @@ import sys
 from tkinter import ttk
 from image_converter import ImageConverter
 from audio_converter import AudioConverter
+from video_converter import VideoConverter
 
 class MainApp:
     def __init__(self, root):
@@ -61,7 +62,7 @@ class MainApp:
         converters = [
             ("Image Converter", self.open_image_converter),
             ("Audio Converter", self.open_audio_converter),
-            ("Video Converter", self.open_converter),
+            ("Video Converter", self.open_video_converter),
             ("Document Converter", self.open_converter)
         ]
         
@@ -84,6 +85,11 @@ class MainApp:
         self.root.withdraw()
         converter_window = tk.Toplevel()
         AudioConverter(converter_window, self.root)
+
+    def open_video_converter(self):
+        self.root.withdraw()
+        converter_window = tk.Toplevel()
+        VideoConverter(converter_window, self.root)
     
     def open_converter(self):
         tk.messagebox.showinfo(
