@@ -39,10 +39,11 @@ After building, your EXE will be at: dist/FileConverter.exe <br/>
 In the video converter, not sugget convert with "WEBM" which use a lot of CPU usage and slow
 
 # Develop path
-1. Image conveter (done)
-2. Audio conveter (done)
-3. Video to Audio conveter (done)
+1. Image converter (done)
+2. Audio converter (done)
+3. Video to Audio converter (done)
 4. Video conveter (done)
-5. Document conveter (not yet)
+5. Audio to Video converter (done)
+6. Document conveter (not yet)
 
 # More function comming soon
