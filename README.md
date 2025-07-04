@@ -44,6 +44,3 @@ In the video converter, not sugget convert with "WEBM" which use a lot of CPU us
 3. Video to Audio converter (done)
 4. Video conveter (done)
 5. Audio to Video converter (done)
-6. Document conveter (not yet)
-
-# More function comming soon
