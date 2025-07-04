@@ -63,7 +63,6 @@ class MainApp:
             ("Image Converter", self.open_image_converter),
             ("Audio Converter", self.open_audio_converter),
             ("Video Converter", self.open_video_converter),
-            ("Document Converter", self.open_converter)
         ]
         
         for text, command in converters:

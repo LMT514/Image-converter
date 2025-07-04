@@ -57,7 +57,7 @@ class ImageConverter:
         nav_frame.pack(fill=tk.X, padx=10, pady=5)
         
         # Nav buttons
-        converters = ["Main Menu", "Image Converter", "Audio Converter", "Video Converter", "Document Converter"]
+        converters = ["Main Menu", "Image Converter", "Audio Converter", "Video Converter"]
         self.nav_buttons = []
         for converter in converters:
             btn = ttk.Button(
